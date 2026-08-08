@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional, Tuple
+
+from tqdm import tqdm
 
 try:
     import rawpy
@@ -21,34 +24,40 @@ def parse_args() -> argparse.Namespace:
     default_dest = Path.home() / "Desktop" / "SonyA6100"
 
     parser = argparse.ArgumentParser(
-        description="Konvertiere alle ARW-Dateien eines Ordners in PNG.",
+        description="Convert all ARW files in a source folder to PNG.",
     )
     parser.add_argument(
         "--source",
         required=True,
-        help="Pfad zu einem Ordner mit ARW-Dateien (Pflichtargument)",
+        help="Path to a folder that contains ARW files (required)",
     )
     parser.add_argument(
         "--destination",
         default=str(default_dest),
-        help="Zielordner für PNGs. Default: ~/Desktop/SonyA6100/",
+        help="Destination folder for PNG files. Default: ~/Desktop/SonyA6100/",
     )
     parser.add_argument(
         "--backend",
         choices=("rawpy", "magick", "auto"),
         default="auto",
-        help="Konvertierungs-Backend: rawpy (Python), magick (ImageMagick), auto",
+        help="Conversion backend: rawpy (Python), magick (ImageMagick), auto",
     )
     parser.add_argument(
         "--recursive",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Rekursiv in Unterordnern suchen (Default: einbeziehen)",
+        help="Search recursively in subfolders (default: enabled)",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Bestehende PNG-Dateien überschreiben",
+        help="Overwrite existing PNG files",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=0,
+        help="Number of worker threads. 0 disables threading (default), 1 uses single-thread processing",
     )
     return parser.parse_args()
 
@@ -70,7 +79,7 @@ def collect_arw_files(folder: Path, recursive: bool) -> Iterable[Path]:
 
 def convert_with_rawpy(src: Path, dst: Path) -> None:
     if rawpy is None or Image is None:
-        raise RuntimeError("Python-Pakete nicht installiert: rawpy, Pillow")
+        raise RuntimeError("Missing dependencies: rawpy and Pillow must be installed")
 
     with rawpy.imread(str(src)) as raw:
         rgb = raw.postprocess(
@@ -116,17 +125,17 @@ def choose_backend(selected: str) -> str:
         if command_available("magick"):
             return "magick"
         raise RuntimeError(
-            "Kein Konvertierungs-Backend gefunden. Installiere rawpy+Pillow oder ImageMagick (magick)."
+            "No conversion backend found. Install rawpy + Pillow or ImageMagick (magick)."
         )
 
     if selected == "rawpy":
         if rawpy is None or Image is None:
-            raise RuntimeError("Auswahl 'rawpy' gewählt, aber rawpy/Pillow nicht installiert.")
+            raise RuntimeError("Backend 'rawpy' selected, but rawpy/Pillow are not installed.")
         return "rawpy"
 
     if selected == "magick":
         if not command_available("magick"):
-            raise RuntimeError("Auswahl 'magick' gewählt, aber 'magick' nicht gefunden.")
+            raise RuntimeError("Backend 'magick' selected, but 'magick' was not found in PATH.")
         return "magick"
 
     return selected
@@ -139,7 +148,7 @@ def main() -> int:
     destination = Path(args.destination).expanduser().resolve()
 
     if not source.exists() or not source.is_dir():
-        print(f"[FEHLER] Source ist kein Ordner: {source}", file=sys.stderr)
+        print(f"[ERROR] Source is not a directory: {source}", file=sys.stderr)
         return 1
 
     backend = choose_backend(args.backend)
@@ -150,26 +159,51 @@ def main() -> int:
         key=lambda p: str(p).lower(),
     )
     if not arw_files:
-        print(f"Keine ARW-Dateien gefunden in: {source}")
+        print(f"No ARW files found in: {source}")
         return 0
 
-    converted = 0
-    failed = 0
-
-    for src in arw_files:
+    def process_file(src: Path) -> Tuple[str, str, Optional[str]]:
         out = resolve_output_name(destination, src, overwrite=args.overwrite)
         try:
             if backend == "rawpy":
                 convert_with_rawpy(src, out)
             else:
                 convert_with_magick(src, out)
-            converted += 1
-            print(f"OK: {src.name} -> {out.name}")
-        except Exception as exc:  # pragma: no cover
-            failed += 1
-            print(f"FEHLER: {src.name}: {exc}", file=sys.stderr)
+            return src.name, out.name, None
+        except Exception as exc:
+            return src.name, out.name, str(exc)
 
-    print(f"Fertig: {converted} konvertiert, {failed} Fehler")
+    converted = 0
+    failed = 0
+    use_threads = args.threads > 0
+    max_workers = args.threads if args.threads > 0 else 1
+
+    description = "Converting (parallel)" if use_threads else "Converting"
+    with tqdm(total=len(arw_files), unit="file", desc=description) as progress:
+        if use_threads:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(process_file, src) for src in arw_files]
+                for future in concurrent.futures.as_completed(futures):
+                    src_name, out_name, error = future.result()
+                    progress.update(1)
+                    if error is None:
+                        converted += 1
+                        tqdm.write(f"OK: {src_name} -> {out_name}")
+                    else:
+                        failed += 1
+                        tqdm.write(f"ERROR: {src_name} -> {out_name}: {error}")
+        else:
+            for src in arw_files:
+                src_name, out_name, error = process_file(src)
+                progress.update(1)
+                if error is None:
+                    converted += 1
+                    tqdm.write(f"OK: {src_name} -> {out_name}")
+                else:
+                    failed += 1
+                    tqdm.write(f"ERROR: {src_name} -> {out_name}: {error}")
+
+    print(f"Done: {converted} converted, {failed} failed")
     return 1 if failed else 0
 
 

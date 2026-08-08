@@ -1,33 +1,40 @@
 # arw2png-converter
 
-Konvertiert RAW-Dateien im **.ARW**-Format zu **PNG** über die Kommandozeile.
+Convert RAW files in **.ARW** format to **PNG** from the command line.
 
-## Verwendung
+## Usage
 
 ```bash
 python convert_arw_to_png.py --source "D:\\DCIM\\100MSDCF"
 ```
 
-oder mit anderem Zielordner:
+or with a custom destination:
 
 ```bash
 python convert_arw_to_png.py --source "D:\\DCIM\\100MSDCF" --destination "D:\\export\\png"
 ```
 
-## Optionen
+## Options
 
-- `--source` (Pflicht): Ordner mit ARW-Dateien
-- `--destination`: Zielordner, Standard `~/Desktop/SonyA6100/`
-- `--backend`: `auto` (Standard), `rawpy`, `magick`
-- `--recursive` / `--no-recursive`: Unterordner einbeziehen (Standard: einbeziehen)
-- `--overwrite`: Bestehende PNG-Dateien überschreiben
+- `--source` (required): folder containing `.arw` files
+- `--destination`: output folder, default `~/Desktop/SonyA6100/`
+- `--backend`: `auto` (default), `rawpy`, `magick`
+- `--recursive` / `--no-recursive`: include subfolders (default: include)
+- `--overwrite`: overwrite existing PNG files
+- `--threads`: number of worker threads (`0` disables threading, default)
 
-## Voraussetzungen
+### Parallel example
 
-- Variante A (empfohlen): Python-Pakete `rawpy` und `Pillow`
-- Variante B: ImageMagick (`magick` im PATH)
+```bash
+python convert_arw_to_png.py --source "D:\\DCIM\\100MSDCF" --threads 8
+```
 
-Installation:
+## Requirements
+
+- Option A (recommended): Python packages `rawpy` and `Pillow`
+- Option B: ImageMagick (`magick` on PATH)
+
+Install:
 
 ```bash
 pip install -r requirements.txt
