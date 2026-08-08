@@ -2,7 +2,7 @@
 
 Konvertiert RAW-Dateien im **.ARW**-Format zu **PNG** über die Kommandozeile.
 
-## Usage
+## Verwendung
 
 ```bash
 python convert_arw_to_png.py --source "D:\\DCIM\\100MSDCF"
@@ -14,14 +14,7 @@ oder mit anderem Zielordner:
 python convert_arw_to_png.py --source "D:\\DCIM\\100MSDCF" --destination "D:\\export\\png"
 ```
 
-Optional:
-
-```bash
-python convert_arw_to_png.py --source ... --backend magick --overwrite
-python convert_arw_to_png.py --source ... --destination ... --no-recursive
-```
-
-## Argumente
+## Optionen
 
 - `--source` (Pflicht): Ordner mit ARW-Dateien
 - `--destination`: Zielordner, Standard `~/Desktop/SonyA6100/`
@@ -34,8 +27,8 @@ python convert_arw_to_png.py --source ... --destination ... --no-recursive
 - Variante A (empfohlen): Python-Pakete `rawpy` und `Pillow`
 - Variante B: ImageMagick (`magick` im PATH)
 
-Installationen:
+Installation:
 
 ```bash
-pip install rawpy Pillow
+pip install -r requirements.txt
 ```

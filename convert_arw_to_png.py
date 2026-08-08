@@ -18,8 +18,7 @@ except ImportError:  # pragma: no cover
 
 
 def parse_args() -> argparse.Namespace:
-    home = Path.home()
-    default_dest = home / "Desktop" / "SonyA6100"
+    default_dest = Path.home() / "Desktop" / "SonyA6100"
 
     parser = argparse.ArgumentParser(
         description="Konvertiere alle ARW-Dateien eines Ordners in PNG.",
@@ -42,16 +41,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--recursive",
-        action="store_true",
-        help="Rekursiv in Unterordnern suchen (Standard)",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Rekursiv in Unterordnern suchen (Default: einbeziehen)",
     )
-    parser.add_argument(
-        "--recursive",
-        dest="recursive",
-        action="store_false",
-        help="Nur im angegebenen Verzeichnis suchen (kein Unterordner)",
-    )
-    parser.set_defaults(recursive=True)
     parser.add_argument(
         "--overwrite",
         action="store_true",
@@ -69,11 +62,7 @@ def command_available(cmd: str) -> bool:
 
 
 def collect_arw_files(folder: Path, recursive: bool) -> Iterable[Path]:
-    if recursive:
-        iterator = folder.rglob("*")
-    else:
-        iterator = folder.iterdir()
-
+    iterator = folder.rglob("*") if recursive else folder.iterdir()
     for path in iterator:
         if path.is_file() and path.suffix.lower() == ".arw":
             yield path
@@ -96,7 +85,10 @@ def convert_with_rawpy(src: Path, dst: Path) -> None:
 
 def convert_with_magick(src: Path, dst: Path) -> None:
     subprocess.run(
-        ["magick", str(src), str(dst)], check=True, capture_output=True, text=True
+        ["magick", str(src), str(dst)],
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
 
@@ -126,14 +118,17 @@ def choose_backend(selected: str) -> str:
         raise RuntimeError(
             "Kein Konvertierungs-Backend gefunden. Installiere rawpy+Pillow oder ImageMagick (magick)."
         )
+
     if selected == "rawpy":
         if rawpy is None or Image is None:
             raise RuntimeError("Auswahl 'rawpy' gewählt, aber rawpy/Pillow nicht installiert.")
         return "rawpy"
+
     if selected == "magick":
         if not command_available("magick"):
             raise RuntimeError("Auswahl 'magick' gewählt, aber 'magick' nicht gefunden.")
         return "magick"
+
     return selected
 
 
@@ -148,10 +143,12 @@ def main() -> int:
         return 1
 
     backend = choose_backend(args.backend)
-
     ensure_destination(destination)
 
-    arw_files = sorted(collect_arw_files(source, recursive=args.recursive), key=lambda p: str(p).lower())
+    arw_files = sorted(
+        collect_arw_files(source, recursive=args.recursive),
+        key=lambda p: str(p).lower(),
+    )
     if not arw_files:
         print(f"Keine ARW-Dateien gefunden in: {source}")
         return 0
