@@ -22,6 +22,7 @@ python convert_arw_to_png.py --source "D:\\DCIM\\100MSDCF" --destination "D:\\ex
 - `--recursive` / `--no-recursive`: include subfolders (default: include)
 - `--overwrite`: overwrite existing PNG files
 - `--threads`: number of worker threads (`0` disables threading, default)
+- `--bit-depth`: `8` or `16` bits per channel for rawpy backend; `16` is default (maximum quality)
 
 ### Parallel example
 

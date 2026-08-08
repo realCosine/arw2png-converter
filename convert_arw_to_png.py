@@ -59,6 +59,13 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Number of worker threads. 0 disables threading (default), 1 uses single-thread processing",
     )
+    parser.add_argument(
+        "--bit-depth",
+        type=int,
+        choices=(8, 16),
+        default=16,
+        help="Raw output bit depth in bits per channel. 16 is maximum quality (default).",
+    )
     return parser.parse_args()
 
 
@@ -77,7 +84,7 @@ def collect_arw_files(folder: Path, recursive: bool) -> Iterable[Path]:
             yield path
 
 
-def convert_with_rawpy(src: Path, dst: Path) -> None:
+def convert_with_rawpy(src: Path, dst: Path, bit_depth: int) -> None:
     if rawpy is None or Image is None:
         raise RuntimeError("Missing dependencies: rawpy and Pillow must be installed")
 
@@ -86,7 +93,7 @@ def convert_with_rawpy(src: Path, dst: Path) -> None:
             no_auto_bright=False,
             use_camera_wb=True,
             half_size=False,
-            output_bps=8,
+            output_bps=bit_depth,
         )
     image = Image.fromarray(rgb)
     image.save(dst, format="PNG")
@@ -166,7 +173,7 @@ def main() -> int:
         out = resolve_output_name(destination, src, overwrite=args.overwrite)
         try:
             if backend == "rawpy":
-                convert_with_rawpy(src, out)
+                convert_with_rawpy(src, out, args.bit_depth)
             else:
                 convert_with_magick(src, out)
             return src.name, out.name, None
