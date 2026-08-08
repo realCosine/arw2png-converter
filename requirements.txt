@@ -1,0 +1,3 @@
+# Python dependencies for rawpy backend
+rawpy>=0.18
+Pillow>=10.0
