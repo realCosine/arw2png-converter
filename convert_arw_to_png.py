@@ -19,6 +19,11 @@ except ImportError:  # pragma: no cover
     rawpy = None
     Image = None
 
+try:
+    import png
+except ImportError:  # pragma: no cover
+    png = None
+
 
 def parse_args() -> argparse.Namespace:
     default_dest = Path.home() / "Desktop" / "SonyA6100"
@@ -85,8 +90,15 @@ def collect_arw_files(folder: Path, recursive: bool) -> Iterable[Path]:
 
 
 def convert_with_rawpy(src: Path, dst: Path, bit_depth: int) -> None:
-    if rawpy is None or Image is None:
-        raise RuntimeError("Missing dependencies: rawpy and Pillow must be installed")
+    if rawpy is None:
+        raise RuntimeError("Missing dependency: rawpy must be installed")
+    if bit_depth == 16 and png is None:
+        raise RuntimeError(
+            "16-bit output requires pypng (module name: png). "
+            "Install with: pip install pypng"
+        )
+    if bit_depth == 8 and Image is None:
+        raise RuntimeError("Missing dependency: Pillow must be installed")
 
     with rawpy.imread(str(src)) as raw:
         rgb = raw.postprocess(
@@ -95,6 +107,19 @@ def convert_with_rawpy(src: Path, dst: Path, bit_depth: int) -> None:
             half_size=False,
             output_bps=bit_depth,
         )
+
+    if bit_depth == 16:
+        flat_rows = (tuple(row.tolist()) for row in rgb.reshape(rgb.shape[0], -1))
+        with dst.open("wb") as output:
+            writer = png.Writer(
+                width=rgb.shape[1],
+                height=rgb.shape[0],
+                greyscale=False,
+                bitdepth=16,
+            )
+            writer.write(output, flat_rows)
+        return
+
     image = Image.fromarray(rgb)
     image.save(dst, format="PNG")
 

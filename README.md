@@ -32,7 +32,7 @@ python convert_arw_to_png.py --source "D:\\DCIM\\100MSDCF" --threads 8
 
 ## Requirements
 
-- Option A (recommended): Python packages `rawpy` and `Pillow`
+- Option A (recommended): Python packages `rawpy`, `Pillow`, and `pypng`
 - Option B: ImageMagick (`magick` on PATH)
 
 Install:
